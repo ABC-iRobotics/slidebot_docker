@@ -26,7 +26,25 @@ RUN pip install \
       opencv-contrib-python==4.5.5.64 \
       transforms3d==0.3.1 \
       scipy==1.8.0 \
-      seaborn==0.11.2
+      seaborn==0.11.2 \
+      cairocffi \
+      pycairo==1.14.0
+
+RUN apt-get update && apt-get install -y python3-gi-cairo
+
+ENV UNDERLAY_WS /usr/underlay_ws
+
+WORKDIR $UNDERLAY_WS
+
+# rebuild underlay workspace
+RUN catkin config \
+      --extend /opt/ros/$ROS_DISTRO && \
+    catkin build
+
+# source ros package from entrypoint
+RUN sed --in-place --expression \
+      '$isource "$UNDERLAY_WS/devel/setup.bash"' \
+      /ros_entrypoint.sh
 
 # clone ros packages
 ENV ROS_WS /usr/catkin_ws
@@ -61,9 +79,15 @@ RUN sed --in-place --expression \
       '$isource "$ROS_WS/devel/setup.bash"' \
       /ros_entrypoint.sh
 
+RUN git -C src clone \
+      https://github.com/ultralytics/yolov5 && \
+      cd src/yolov5 && \
+      git checkout 15e82d296720d4be344bf42a34d60ffd57b3eb28 && \
+      pip install -r requirements.txt
+
 RUN echo "source /usr/catkin_ws/devel/setup.bash" >> /etc/bash.bashrc
-
-
+RUN echo "export ROS_MASTER_URI=http://192.168.1.150:11311/" >> /etc/bash.bashrc
+RUN echo "export ROS_IP=192.168.1.150" >> /etc/bash.bashrc
 
 WORKDIR $ROS_WS
 
